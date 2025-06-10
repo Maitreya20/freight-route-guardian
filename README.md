@@ -55,7 +55,7 @@ A modern, full-featured cargo shipment tracking application built with React, Ty
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Maitreya20/freight-route-guardian.git
    cd cargo-tracker
    ```
 
