@@ -54,6 +54,89 @@ export type Database = {
         }
         Relationships: []
       }
+      shipment_updates: {
+        Row: {
+          created_at: string
+          id: string
+          location: Json
+          notes: string | null
+          shipment_id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location: Json
+          notes?: string | null
+          shipment_id: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: Json
+          notes?: string | null
+          shipment_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_updates_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          container_id: string
+          created_at: string
+          current_location: Json
+          description: string | null
+          destination: Json
+          dimensions: string | null
+          eta: string
+          id: string
+          origin: Json
+          route: Json
+          status: string
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          container_id: string
+          created_at?: string
+          current_location: Json
+          description?: string | null
+          destination: Json
+          dimensions?: string | null
+          eta: string
+          id?: string
+          origin: Json
+          route?: Json
+          status: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          container_id?: string
+          created_at?: string
+          current_location?: Json
+          description?: string | null
+          destination?: Json
+          dimensions?: string | null
+          eta?: string
+          id?: string
+          origin?: Json
+          route?: Json
+          status?: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           active: boolean | null

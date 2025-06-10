@@ -1,18 +1,29 @@
 
 import React, { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
-import ShipmentTable from '@/components/ShipmentTable';
+import EnhancedShipmentTable from '@/components/EnhancedShipmentTable';
 import ShipmentMap from '@/components/ShipmentMap';
+import ShipmentAnalytics from '@/components/ShipmentAnalytics';
 import AddShipmentModal from '@/components/AddShipmentModal';
-import { Shipment, ShipmentFormData, Location } from '@/types/shipment';
-import { mockShipments } from '@/data/mockShipments';
+import { Shipment, ShipmentFormData } from '@/types/shipment';
+import { useShipments } from '@/hooks/useShipments';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
-  const [shipments, setShipments] = useState<Shipment[]>(mockShipments);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { toast } = useToast();
+
+  const {
+    shipments,
+    loading,
+    error,
+    addShipment,
+    updateLocation,
+    updateStatus,
+    deleteShipment,
+  } = useShipments();
 
   const handleSelectShipment = (shipment: Shipment) => {
     setSelectedShipment(shipment);
@@ -22,99 +33,77 @@ const Index = () => {
     });
   };
 
-  const handleAddShipment = (formData: ShipmentFormData) => {
-    const newShipment: Shipment = {
-      id: `SHP${String(shipments.length + 1).padStart(3, '0')}`,
-      containerId: formData.containerId,
-      status: 'pending',
-      currentLocation: {
-        lat: Math.random() * 180 - 90,
-        lng: Math.random() * 360 - 180,
-        name: formData.origin
-      },
-      route: [
-        {
-          lat: Math.random() * 180 - 90,
-          lng: Math.random() * 360 - 180,
-          name: formData.origin
-        },
-        {
-          lat: Math.random() * 180 - 90,
-          lng: Math.random() * 360 - 180,
-          name: formData.destination
-        }
-      ],
-      eta: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      origin: {
-        lat: Math.random() * 180 - 90,
-        lng: Math.random() * 360 - 180,
-        name: formData.origin
-      },
-      destination: {
-        lat: Math.random() * 180 - 90,
-        lng: Math.random() * 360 - 180,
-        name: formData.destination
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      weight: formData.weight,
-      dimensions: formData.dimensions,
-      description: formData.description
-    };
-
-    setShipments(prev => [...prev, newShipment]);
-    toast({
-      title: "Shipment Created",
-      description: `New shipment ${newShipment.containerId} has been added successfully.`,
-    });
-  };
-
-  const handleUpdateLocation = (shipmentId: string, location: Location) => {
-    setShipments(prev => prev.map(shipment => 
-      shipment.id === shipmentId 
-        ? { 
-            ...shipment, 
-            currentLocation: location,
-            updatedAt: new Date().toISOString()
-          }
-        : shipment
-    ));
-
-    if (selectedShipment?.id === shipmentId) {
-      setSelectedShipment(prev => prev ? {
-        ...prev,
-        currentLocation: location,
-        updatedAt: new Date().toISOString()
-      } : null);
+  const handleAddShipment = async (formData: ShipmentFormData) => {
+    try {
+      await addShipment(formData);
+      setIsAddModalOpen(false);
+    } catch (error) {
+      console.error('Failed to add shipment:', error);
     }
-
-    toast({
-      title: "Location Updated",
-      description: `Shipment location has been updated to ${location.name}`,
-    });
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-destructive">Error Loading Shipments</h2>
+            <p className="text-muted-foreground mt-2">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-6">
-            <ShipmentTable
+      <div className="container mx-auto px-4 py-6">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="map">Map View</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            <EnhancedShipmentTable
               shipments={shipments}
+              loading={loading}
               onSelectShipment={handleSelectShipment}
               onAddShipment={() => setIsAddModalOpen(true)}
+              onUpdateStatus={updateStatus}
+              onDeleteShipment={deleteShipment}
             />
-          </div>
-          
-          <div>
-            <ShipmentMap
-              selectedShipment={selectedShipment}
-              onUpdateLocation={handleUpdateLocation}
-            />
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="map" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <EnhancedShipmentTable
+                  shipments={shipments}
+                  loading={loading}
+                  onSelectShipment={handleSelectShipment}
+                  onAddShipment={() => setIsAddModalOpen(true)}
+                  onUpdateStatus={updateStatus}
+                  onDeleteShipment={deleteShipment}
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <ShipmentMap
+                  selectedShipment={selectedShipment}
+                  onUpdateLocation={updateLocation}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <ShipmentAnalytics shipments={shipments} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <AddShipmentModal
