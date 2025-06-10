@@ -1,26 +1,59 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { DatabaseShipment } from '@/types/database';
 import { Shipment, ShipmentFormData, Location } from '@/types/shipment';
 import { useToast } from '@/hooks/use-toast';
+import { Json } from '@/integrations/supabase/types';
 
 // Transform database shipment to app shipment format
-const transformShipment = (dbShipment: DatabaseShipment): Shipment => ({
-  id: dbShipment.id,
-  containerId: dbShipment.container_id,
-  status: dbShipment.status,
-  currentLocation: dbShipment.current_location,
-  route: dbShipment.route,
-  eta: dbShipment.eta,
-  origin: dbShipment.origin,
-  destination: dbShipment.destination,
-  createdAt: dbShipment.created_at,
-  updatedAt: dbShipment.updated_at,
-  weight: dbShipment.weight,
-  dimensions: dbShipment.dimensions,
-  description: dbShipment.description,
-});
+const transformShipment = (dbShipment: any): Shipment => {
+  // Type assertions with proper validation
+  const parseLocation = (locationJson: Json): Location => {
+    if (typeof locationJson === 'object' && locationJson !== null) {
+      const loc = locationJson as any;
+      return {
+        lat: Number(loc.lat) || 0,
+        lng: Number(loc.lng) || 0,
+        name: String(loc.name) || '',
+        timestamp: loc.timestamp ? String(loc.timestamp) : undefined,
+      };
+    }
+    return { lat: 0, lng: 0, name: 'Unknown' };
+  };
+
+  const parseRoute = (routeJson: Json): Location[] => {
+    if (Array.isArray(routeJson)) {
+      return routeJson.map(parseLocation);
+    }
+    return [];
+  };
+
+  return {
+    id: dbShipment.id,
+    containerId: dbShipment.container_id,
+    status: dbShipment.status as 'pending' | 'in-transit' | 'delivered' | 'delayed',
+    currentLocation: parseLocation(dbShipment.current_location),
+    route: parseRoute(dbShipment.route),
+    eta: dbShipment.eta,
+    origin: parseLocation(dbShipment.origin),
+    destination: parseLocation(dbShipment.destination),
+    createdAt: dbShipment.created_at,
+    updatedAt: dbShipment.updated_at,
+    weight: dbShipment.weight || undefined,
+    dimensions: dbShipment.dimensions || undefined,
+    description: dbShipment.description || undefined,
+  };
+};
+
+// Convert Location to Json format for database
+const locationToJson = (location: Location): Json => {
+  return {
+    lat: location.lat,
+    lng: location.lng,
+    name: location.name,
+    ...(location.timestamp && { timestamp: location.timestamp }),
+  } as Json;
+};
 
 export const useShipments = () => {
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -69,24 +102,28 @@ export const useShipments = () => {
         lng: Math.random() * 360 - 180,
       };
 
+      const originLocation: Location = {
+        ...originCoords,
+        name: formData.origin,
+        timestamp: new Date().toISOString(),
+      };
+
+      const destinationLocation: Location = {
+        ...destCoords,
+        name: formData.destination,
+      };
+
       const newShipment = {
         container_id: formData.containerId,
         status: 'pending' as const,
-        current_location: {
-          ...originCoords,
-          name: formData.origin,
-          timestamp: new Date().toISOString(),
-        },
-        route: [
-          { ...originCoords, name: formData.origin },
-          { ...destCoords, name: formData.destination },
-        ],
+        current_location: locationToJson(originLocation),
+        route: [locationToJson(originLocation), locationToJson(destinationLocation)] as Json,
         eta: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        origin: { ...originCoords, name: formData.origin },
-        destination: { ...destCoords, name: formData.destination },
-        weight: formData.weight,
-        dimensions: formData.dimensions,
-        description: formData.description,
+        origin: locationToJson(originLocation),
+        destination: locationToJson(destinationLocation),
+        weight: formData.weight || null,
+        dimensions: formData.dimensions || null,
+        description: formData.description || null,
       };
 
       const { data, error } = await supabase
@@ -123,7 +160,7 @@ export const useShipments = () => {
       const { error } = await supabase
         .from('shipments')
         .update({
-          current_location: location,
+          current_location: locationToJson(location),
           updated_at: new Date().toISOString(),
         })
         .eq('id', shipmentId);
@@ -135,7 +172,7 @@ export const useShipments = () => {
         .from('shipment_updates')
         .insert([{
           shipment_id: shipmentId,
-          location,
+          location: locationToJson(location),
           notes: 'Location updated via tracking system',
         }]);
 
@@ -231,10 +268,10 @@ export const useShipments = () => {
         console.log('Real-time update:', payload);
         
         if (payload.eventType === 'INSERT') {
-          const newShipment = transformShipment(payload.new as DatabaseShipment);
+          const newShipment = transformShipment(payload.new);
           setShipments(prev => [newShipment, ...prev]);
         } else if (payload.eventType === 'UPDATE') {
-          const updatedShipment = transformShipment(payload.new as DatabaseShipment);
+          const updatedShipment = transformShipment(payload.new);
           setShipments(prev => prev.map(shipment => 
             shipment.id === updatedShipment.id ? updatedShipment : shipment
           ));

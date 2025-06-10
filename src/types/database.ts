@@ -1,33 +1,18 @@
 
+import { Json } from '@/integrations/supabase/types';
+
 export interface DatabaseShipment {
   id: string;
   container_id: string;
-  status: 'pending' | 'in-transit' | 'delivered' | 'delayed';
-  current_location: {
-    lat: number;
-    lng: number;
-    name: string;
-    timestamp?: string;
-  };
-  route: Array<{
-    lat: number;
-    lng: number;
-    name: string;
-  }>;
+  status: string; // Changed to string to match Supabase types
+  current_location: Json;
+  route: Json;
   eta: string;
-  origin: {
-    lat: number;
-    lng: number;
-    name: string;
-  };
-  destination: {
-    lat: number;
-    lng: number;
-    name: string;
-  };
-  weight?: number;
-  dimensions?: string;
-  description?: string;
+  origin: Json;
+  destination: Json;
+  weight?: number | null;
+  dimensions?: string | null;
+  description?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,13 +20,8 @@ export interface DatabaseShipment {
 export interface ShipmentUpdate {
   id: string;
   shipment_id: string;
-  location: {
-    lat: number;
-    lng: number;
-    name: string;
-    timestamp?: string;
-  };
-  status?: string;
-  notes?: string;
+  location: Json;
+  status?: string | null;
+  notes?: string | null;
   created_at: string;
 }
